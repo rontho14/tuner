@@ -5,7 +5,6 @@ João Vitor Ferrenha - 22.00085-2
 Matheus Santos Feitosa - 20.00628-4
 **Curso/Disciplina:** 
 EEN251. Microcontroladores e Sistemas Embarcados.
-**Data:** 28/10/2025  
 
 ---
 
