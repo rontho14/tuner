@@ -10,6 +10,9 @@ Matheus Santos Feitosa - 20.00628-4
 **Curso/Disciplina:** 
 EEN251. Microcontroladores e Sistemas Embarcados.
 
+** Video **
+https://youtu.be/zo_XsmjPVOc
+
 ---
 
 ## 1. Visão Geral
