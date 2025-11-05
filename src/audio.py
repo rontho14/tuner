@@ -1,68 +1,115 @@
-import math
+import time
+import threading
 import numpy as np
-from config import PITCH_FMIN, PITCH_FMAX, PITCH_MIN_CORR, GUITAR_STRINGS
+import sounddevice as sd
+from dataclasses import dataclass, field
+from collections import deque
 
 
-def rms_dbfs(x: np.ndarray) -> float:
-    if x is None or x.size == 0:
-        return -np.inf
-    rms = np.sqrt(np.mean(np.square(x), dtype=np.float64))
-    if rms <= 1e-12:
-        return -np.inf
-    return 20.0 * np.log10(rms)
-
-
-def estimate_pitch_autocorr(y: np.ndarray, sr: int) -> float:
-    if y.size < 32:
-        return np.nan
+@dataclass
+class AudioState:
+    """Shared audio state accessible from all modules."""
+    last_db_value: float = -np.inf
+    peak_db_value: float = -np.inf
+    peak_db_time: float = 0.0
     
-    y = y.astype(np.float64, copy=False)
-    y -= np.mean(y)
-    if np.allclose(y, 0.0):
-        return np.nan
-    y *= np.hanning(y.size)
-
-    corr = np.correlate(y, y, mode='full')
-    corr = corr[corr.size // 2:]
-    if corr[0] <= 1e-12:
-        return np.nan
-    corr /= corr[0]
-
-    min_lag = max(1, int(sr / PITCH_FMAX))
-    max_lag = min(len(corr) - 1, int(sr / PITCH_FMIN))
-    if max_lag <= min_lag + 2:
-        return np.nan
-
-    seg = corr[min_lag:max_lag]
-    peak_rel = np.argmax(seg)
-    peak_idx = peak_rel + min_lag
-    peak_val = corr[peak_idx]
-    if peak_val < PITCH_MIN_CORR:
-        return np.nan
-
-    if 1 < peak_idx < len(corr) - 2:
-        y0, y1, y2 = corr[peak_idx - 1], corr[peak_idx], corr[peak_idx + 1]
-        denom = 2 * (y0 - 2*y1 + y2)
-        if abs(denom) > 1e-12:
-            delta = (y0 - y2) / denom
-            peak_idx = peak_idx + delta
-
-    f0 = sr / peak_idx if peak_idx > 0 else np.nan
-    if not np.isfinite(f0) or f0 < PITCH_FMIN or f0 > PITCH_FMAX:
-        return np.nan
-    return f0
-
-
-def nearest_guitar_string(freq: float):
-    if not np.isfinite(freq):
-        return None
+    pitch_hz: float = np.nan
+    pitch_cents: float = np.nan
+    pitch_note_name: str = None
     
-    best = None
-    best_abs = 1e9
-    for name, fref in GUITAR_STRINGS:
-        cents = 1200.0 * math.log2(freq / fref)
-        if abs(cents) < best_abs:
-            best = (name, fref, cents)
-            best_abs = abs(cents)
-    return best
+    calibration_offset_db: float = 60.0
+    
+    def reset_peak(self):
+        """Reset peak hold values."""
+        self.peak_db_value = -np.inf
+        self.peak_db_time = 0.0
 
+
+@dataclass
+class AudioStream:
+    """Manages audio input stream with buffering."""
+    sample_rate: int
+    block_size: int
+    
+    _stream: sd.InputStream = field(default=None, init=False, repr=False)
+    _buffer: deque = field(default_factory=deque, init=False, repr=False)
+    _lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False)
+    _running: bool = field(default=False, init=False, repr=False)
+    
+    def start(self):
+        """Start the audio input stream."""
+        if self._running:
+            return
+        
+        def callback(indata, frames, time_info, status):
+            if status:
+                print(f"[Audio] Status: {status}")
+            
+            # Convert to mono if stereo
+            if indata.ndim > 1:
+                mono = np.mean(indata, axis=1)
+            else:
+                mono = indata[:, 0] if indata.ndim == 2 else indata
+            
+            with self._lock:
+                self._buffer.append(mono.copy())
+        
+        try:
+            self._stream = sd.InputStream(
+                samplerate=self.sample_rate,
+                blocksize=self.block_size,
+                channels=1,
+                callback=callback,
+                dtype=np.float32
+            )
+            self._stream.start()
+            self._running = True
+            print(f"[Audio] Stream started: {self.sample_rate} Hz, block size {self.block_size}")
+        except Exception as e:
+            print(f"[Audio] Failed to start stream: {e}")
+            raise
+    
+    def stop(self):
+        """Stop the audio input stream."""
+        if not self._running:
+            return
+        
+        self._running = False
+        if self._stream:
+            self._stream.stop()
+            self._stream.close()
+            self._stream = None
+        
+        with self._lock:
+            self._buffer.clear()
+        
+        print("[Audio] Stream stopped")
+    
+    def read_block(self) -> np.ndarray:
+        """Read the oldest audio block from the buffer."""
+        with self._lock:
+            if self._buffer:
+                return self._buffer.popleft()
+        return np.array([], dtype=np.float32)
+    
+    def read_window(self, num_samples: int) -> np.ndarray:
+        """Read multiple blocks to form a window of the requested size."""
+        chunks = []
+        total = 0
+        
+        with self._lock:
+            while self._buffer and total < num_samples:
+                chunk = self._buffer.popleft()
+                chunks.append(chunk)
+                total += len(chunk)
+        
+        if not chunks:
+            return np.array([], dtype=np.float32)
+        
+        combined = np.concatenate(chunks)
+        return combined[-num_samples:] if len(combined) > num_samples else combined
+    
+    @property
+    def is_running(self) -> bool:
+        """Check if the stream is running."""
+        return self._running
