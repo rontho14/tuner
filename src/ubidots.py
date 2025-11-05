@@ -28,7 +28,7 @@ def post_to_ubidots(payload: dict) -> bool:
 
 
 def ubidots_worker(app_instance):
-    interval = 5.0
+    interval = 0.1
     
     while app_instance.running:
         try:
