@@ -87,32 +87,3 @@ python main.py
 export UBIDOTS_TOKEN="seu-token-aqui"
 python main.py
 ```
-
-## Funcionalidades
-
-### Medidor de Decibéis
-- Medição de nível sonoro em tempo real
-- Indicador de pico mantido
-- Gravação manual com estatísticas
-- Geração de relatório gráfico
-
-### Afinador de Guitarra
-- Detecção de pitch (65 Hz - 1000 Hz)
-- Referência de afinação padrão de guitarra (E2, A2, D3, G3, B3, E4)
-- Mostrador analógico com faixa de ±100 cents
-- Zona visual de "afinado" (±5 cents)
-
-## Suporte de Plataforma
-
-- **Desktop** - Perfil de qualidade total (24 kHz, buffers maiores)
-- **Raspberry Pi** - Perfil econômico (12 kHz, desempenho otimizado)
-
-## Benefícios da Estrutura Modular
-
-1. **Melhor Legibilidade** - Cada módulo tem uma única responsabilidade clara
-2. **Teste Mais Fácil** - Componentes individuais podem ser testados isoladamente
-3. **Melhor Manutenibilidade** - Mudanças são localizadas em módulos específicos
-4. **Reusabilidade** - Módulos de DSP e áudio podem ser usados em outros projetos
-5. **Dependências Mais Claras** - Declarações de import mostram relacionamentos entre módulos
-
-
