@@ -1,8 +1,12 @@
 **Autores:** 
 Guilherme Thomasi Ronca - 22.00522-6
+
 André Prino - 21.00476-5
+
 João Vitor Ferrenha - 22.00085-2 
+
 Matheus Santos Feitosa - 20.00628-4
+
 **Curso/Disciplina:** 
 EEN251. Microcontroladores e Sistemas Embarcados.
 
