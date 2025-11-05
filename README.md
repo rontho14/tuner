@@ -59,7 +59,6 @@ Motivação principal: criar uma ferramenta didática e de baixo custo para **me
 
 ### `app.py`
 - **`App`** - Classe principal da aplicação
-  - Thread worker de processamento de áudio
   - Funcionalidade de gravação
   - Tratamento de eventos
   - Loop principal
